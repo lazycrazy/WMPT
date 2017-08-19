@@ -1,0 +1,135 @@
+﻿1 动态方法的参数类型要对应上，要么dynamic
+2 oracle :0
+3 无法对 null 引用执行运行时绑定,参数名是否对应上，是否有值
+4 fetch no-cors模式不能访问response
+5 服务器没有生成日志文件的时候，注意查看调用的服务地址是否正确，别弄混
+6 massive query 方法的参数，注意需要转换为基本类型
+7 授权码获取access_token时，微盟的400错误，是以为授权码过期
+8 所有接口访问，需要加上返回值判断处理
+9 不能对new { } 对象得属性赋值，因为它是只读得
+
+1 wm id log id
+2 线下积分变更日志记录 ID 是什么字段名字？
+3 job 要每次只能执行一个
+4 上传报错，参数类型问题
+5 json不能值为null, 需要操作的数据不存在
+5 测试多数据下载递归
+   /// <summary>
+        /// 将西欧字符编码转换成gb2312
+        /// </summary>
+        /// <param name="s"></param>
+        /// <returns></returns>
+        public static string convert8859p1togb2312(string s)
+        {
+            return system.text.encoding.default.getstring(system.text.encoding.getencoding("iso-8859-1").getbytes(s));
+        }
+
+
+fetch("/api/register",
+{
+    method: "POST", credentials: 'include',headers: { 'Accept': 'application/json', 'Content-Type': 'application/json'},body:JSON.stringify( {username:'hyadmin',password:'hyhyhy',confirm:'hyhyhy'} )
+}).then(res=>res.json().then(r=>console.log(r)))
+
+fetch("/api/login",
+{
+    method: "POST", credentials: 'include',headers: { 'Accept': 'application/json', 'Content-Type': 'application/json'},body:JSON.stringify( {username:'hyadmin',password:'hyhyhy'} )
+}).then(res=>res.json().then(r=>console.log(r)))
+
+fetch("/api/logout",
+{credentials: 'include',
+    method: "GET",headers: { 'Accept': 'application/json', 'Content-Type': 'application/json'}
+}).then(res=>res.json().then(r=>console.log(r)))
+
+
+
+新建的表
+微盟平台APP    WMAPPS 
+同步执行时间表 wmsync         每个微盟平台APP的同步时间记录
+微盟公众号平台 wmgzh          微盟绑定的所有的公众号
+微盟会员表 wmmember           字段信息查看 http://open.weimob.com/docapi/article?tag=Od  返回值字段
+微盟积分流水表 wmpointslog    字段信息查看 http://open.weimob.com/docapi/article?tag=2d  返回值字段
+实体店会员表 wmofflinemember  字段信息查看 http://open.weimob.com/docapi/article?tag=Ad  返回值字段
+实体店会员积分流水表 wmofflinepointslog  存放已绑定微盟会员号，需要同步到微盟的线下会员积分变动的数据 字段信息查看 http://open.weimob.com/docapi/article?tag=Id  返回值字段
+实体店会员号与微盟会员号对应表  wmofflinevsonline
+微盟会员表 wmmember 和 实体店会员表 wmofflinemember   中的syncid表示最后一次修改数据行的同步处理ID,synctime 最后维护的系统时间sysdate
+微盟积分流水表 wmpointslog  和  实体店会员积分流水表 wmofflinepointslog 中的syncid表示流水记录的同步处理ID
+
+使用手机号作为关联，查找到微盟会员号，建立线下会员线上会员号对应关系
+
+
+数据同步流程
+初始化
+下载微盟会员和积分 接口 获取会员列表(GetMemberInfoPagelistAndTotal)
+实体店有的，绑定微盟会员号（添加wmofflinevsonline表数据）  手机号作为关联条件 （？提供存储过程调用）
+上传
+定时同步处理
+收集上次上传结束后发生变更的实体店会员，新增或积分变动 (线下会员数据到wmofflinemember,wmofflinepointslog表 ) （？提供存储过程调用）
+将表中newflag=1--新增的数据
+上传到微盟实体店会员（分公众号上传） 接口添加实体店会员(AddOfflineMemberInfo)
+将表中syncflag=0--未同步的数据
+已绑定的积分变更（wmofflinepointslog数据） 修改会员积分 接口 增加/减少积分(ChangeMemberPoints)   指定操作人便于区分 WMPTSYNC
+未绑定的（没有微盟会员号 wmofflinevsonline没有数据） 修改实体店会员信息 接口 编辑实体会员(UpdateOfflineMemberInfo)
+下载
+定时同步处理
+获取最近发生变动积分的会员信息 接口 获取积分流水(GetPointsLogPageListAndTotal)
+实体店有的，绑定会员号（添加wmofflinevsonline表数据）,修改实体店的会员积分（？提供存储过程调用）
+实体店没有的，获取会员信息，保存下来 接口查询会员信息(GetMemberInfo)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+查看 heroku log
+heroku logs -t 
+heroku logs -n 1500
+
+
+access token 获取步骤   access_token失效，必须重新刷新获取，且必须刷新成功
+1 登录微盟后台，选择需要访问的已绑定的公众号，进入公众号平台
+2 进入新版开发者中心
+3 创建对应类型的应用
+4 配置应用跳转地址 https://peaceful-headland-89963.herokuapp.com
+5 点击API权限获取client_id client_secret
+6 填写请求地址
+GET https://dopen.weimob.com/fuwu/b/oauth2/authorize?enter=wm&view=pc&response_type=code&scope=default&client_id={client_id}&redirect_uri={http://xxx}&state={state}
+链接就是授权功能的链接地址
+这个地址打开后会让用户登录
+7 登录微盟账号
+8 选择需要授权的公众号授权 ****** 每个公众号授权访问这个appid的 access_token会不一样，这样就能区分开公众号了
+9 会跳转到 https://peaceful-headland-89963.herokuapp.com 后面跟上code 和 state 
+10 换取access_token   refresh_token
+fetch('https://dopen.weimob.com/fuwu/b/oauth2/token?code=tgni5X&grant_type=authorization_code&client_id=C684D292348F43A9F86DE18F7119C1D4&client_secret=15E675D5A9C3F5F5E68DDE6E6660D076&redirect_uri=https://peaceful-headland-89963.herokuapp.com',{method:'POST',mode:'no-cors',})
+11 可以使用refresh_token 刷新access_token的使用期限（只有2个小时有效期），不用重复获取access_token的步骤
+ POST https://dopen.weimob.com/fuwu/b/oauth2/token?grant_type=refresh_token&client_id={client_id}&client_secret={client_secret}&refresh_token={refresh_token}
+ refresh_token的默认有效时长为7天，在refresh_token未失效时间内，可使用refresh_token刷新access_token，则会对refresh_token的有效期增加2个小时，但refresh_token有效期最终上限7天保持不变。也就是说只要持续刷新，这个refresh-token一直是有效的。
+
+ 获取商户ID
+ http://dopen.weimob.com/api/1_0/open/usercenter/getWeimobUserInfo?accesstoken=88210718-5c75-43b0-9a87-93053b774e30
+
+ --获取实体店线下会员列表
+ fetch('https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/GetOffLineMemberInfoPageListAndTotal?accesstoken=d4f81b24-200b-4da5-8c14-22bfef560eda',{method:'POST',mode:'no-cors',body:JSON.stringify({
+    "pageIndex": 1,
+    "pageSize": 20
+}    )}) 
+
+
+
+{"data":{"pid":"56009512","name":"惠友购物广场徐水1店","avatarUrl":"http://wx.qlogo.cn/mmopen/K99G1fbmow7QLY4BMfKjsrGAx3hS6U3O5yFGcojtke7hLg5Fa0xDCPj5RJCdqUfNTol8yHe1wqk3xfskm6Ae5l4DTrZn3JFL/0"},"code":{"errcode":0,"errmsg":"success"}}
+{"access_token":"68f98595-ff75-430f-8261-1c9bf96f1ce0","token_type":"bearer","refresh_token":"e1b13242-e9d4-4639-ae5a-5699bbb8cf6d","refresh_token_expires_in":157515,"expires_in":7199,"scope":"default","public_account_id":"56009512","business_id":"56736435"}
+
+
+
+
+
+
+
