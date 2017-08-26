@@ -97,8 +97,8 @@ namespace WMPT.Infrastructure
 
                 AccessTokens[pid] = rsJson.access_token.Value;
                 //记录成功日志
-                var msg = new { type = "刷新token", url = url, status = "成功" };
-                Logger.Info(JsonConvert.SerializeObject(msg));
+                var msg = new { type = "刷新token", url = url, status = "成功", accesstoken = AccessTokens[pid] };
+                Logger.Error(JsonConvert.SerializeObject(msg));
             }
             catch (Exception ex)
             {

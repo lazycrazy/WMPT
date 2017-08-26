@@ -7,6 +7,7 @@ using Common.Logging.NLog;
 using Quartz;
 using Quartz.Impl;
 using WMPT.Models;
+using System.Threading.Tasks;
 
 namespace WMPT.Infrastructure.Job
 {
@@ -26,40 +27,44 @@ namespace WMPT.Infrastructure.Job
 
             foreach (string pid in pids)
             {
-                IJobDetail job = JobBuilder.Create<RefreshTokenJob>().WithIdentity("刷新token公众号：" + pid, "RefreshToken").UsingJobData("pid", pid).Build();
+                //await WMHelper.RefreshToken(pid);
                 ITrigger triggerRefresh = TriggerBuilder.Create()
-                   .StartNow().WithSimpleSchedule
-                     (s =>
-                        s.WithIntervalInMinutes(100)
-                       .RepeatForever()
-                     ).ForJob(job)
-                   .Build();
+                  .StartNow().WithSimpleSchedule
+                    (s =>
+                       s.WithIntervalInMinutes(10)
+                      .RepeatForever()
+                    )
+                  .Build();
+                IJobDetail job = JobBuilder.Create<RefreshTokenJob>().WithIdentity("刷新token公众号：" + pid, "RefreshToken").UsingJobData("pid", pid).Build();
+
                 scheduler.ScheduleJob(job, triggerRefresh);
             }
 
             foreach (string pid in pids)
             {
-                IJobDetail job = JobBuilder.Create<UploadMemberJob>().WithIdentity("上传会员，公众号：" + pid, "UploadMember").UsingJobData("pid", pid).Build();
                 ITrigger triggerUpload = TriggerBuilder.Create()
-                   .WithSimpleSchedule
-                     (s =>
-                        s.WithIntervalInMinutes(1)
-                       .RepeatForever()
-                     ).ForJob(job)
-                   .Build();
+                 .WithSimpleSchedule
+                   (s =>
+                      s.WithIntervalInMinutes(1)
+                     .RepeatForever()
+                   )
+                 .Build();
+                IJobDetail job = JobBuilder.Create<UploadMemberJob>().WithIdentity("上传会员，公众号：" + pid, "UploadMember").UsingJobData("pid", pid).Build();
+
                 scheduler.ScheduleJob(job, triggerUpload);
             }
 
             foreach (string pid in pids)
             {
-                IJobDetail job = JobBuilder.Create<DownloadMemberJob>().WithIdentity("下载会员，公众号：" + pid, "DownloadMember").UsingJobData("pid", pid).Build();
                 ITrigger triggerDownload = TriggerBuilder.Create()
-                   .WithSimpleSchedule
-                     (s =>
-                        s.WithIntervalInMinutes(1)
-                       .RepeatForever()
-                     ).ForJob(job)
-                   .Build();
+                  .WithSimpleSchedule
+                    (s =>
+                       s.WithIntervalInMinutes(1)
+                      .RepeatForever()
+                    )
+                  .Build();
+                IJobDetail job = JobBuilder.Create<DownloadMemberJob>().WithIdentity("下载会员，公众号：" + pid, "DownloadMember").UsingJobData("pid", pid).Build();
+
                 scheduler.ScheduleJob(job, triggerDownload);
             }
         }
