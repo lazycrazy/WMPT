@@ -13,6 +13,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using WMPT.Infrastructure.Logging;
 using WMPT.Models;
+using System.Data;
 
 namespace WMPT.Infrastructure
 {
@@ -57,6 +58,7 @@ namespace WMPT.Infrastructure
             catch (Exception ex)
             {
                 Logger.Error(ex, "请求URL失败：" + url + " 数据：" + postDataStr);
+                Logger.Error(ex);
                 return null;
             }
 
@@ -102,6 +104,7 @@ namespace WMPT.Infrastructure
             {
                 var msg = new { type = "刷新token", url = url, status = "失败" };
                 Logger.Error(ex, JsonConvert.SerializeObject(msg));
+                Logger.Error(ex);
                 //记录错误日志
                 throw ex;
             }
@@ -126,15 +129,39 @@ namespace WMPT.Infrastructure
             IsUploadings[pid] = true;
             try
             {
-
-
                 //添加同步号
                 var syncs = new Syncs();
                 int syncId = syncs.New(pid, "0");
 
                 //调用存储过程，生成需要同步实体会员（新增，或者修改的实体会员，和已关联微盟会员的会员积分变更流水）， 传递参数 同步号syncId
-                //XXXXXXXXX
 
+                var db = Massive.DB.Current;
+                using (var conn = db.OpenConnection())
+                {
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = "PRC_ToWmmember_middleTab";
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        var param = cmd.CreateParameter();
+                        param.ParameterName = "V_PID";
+                        param.Value = pid;
+                        param.DbType = DbType.String;
+                        var oparam = cmd.CreateParameter();
+                        oparam.ParameterName = "OUTSTATUS";
+                        oparam.Direction = ParameterDirection.Output;
+                        oparam.DbType = DbType.Int32;
+                        cmd.Parameters.Add(param);
+                        cmd.Parameters.Add(oparam);
+                        cmd.ExecuteNonQuery();
+                        if (int.Parse(cmd.Parameters["OUTSTATUS"].Value.ToString()) != 0)
+                        {
+                            syncs.SetError(syncId);
+                            Logger.Error("公众号：" + pid + "执行存储过程[PRC_ToWmmember_middleTab]失败,返回值：" + cmd.Parameters["OUTSTATUS"].Value);
+
+                        }
+                    }
+                    conn.Close();
+                }
 
                 //添加或修改实体店会员到微盟
                 await ModifyWmOfflineMember(syncId, pid, syncs);
@@ -142,7 +169,6 @@ namespace WMPT.Infrastructure
                 await ModifyWmOfflinePoints(syncId, pid, syncs);
 
                 syncs.SetSuccess(syncId);
-
             }
             finally
             {
@@ -187,6 +213,7 @@ namespace WMPT.Infrastructure
                     allPoints = o.ALLPOINTS == null ? 0 : (int)o.ALLPOINTS,
                     amount = o.AMOUNT ?? 0.00M,
                     allConsumingAmount = o.ALLCONSUMINGAMOUNT ?? 0.00M
+
                 };
                 var isNew = "1" == o.NEWFLAG;
                 var url = String.Format(Urls.AddOfflineMemberInfo, await GetAccessToken(pid));
@@ -200,7 +227,7 @@ namespace WMPT.Infrastructure
                 if ("0" != rs.code.errcode.Value.ToString())
                 {
                     //记录错误日志
-                    var msg = new { syncid = syncId, type = isNew ? "上传实体会员信息" : "修改实体会员信息", url = url, status = "失败", data = member, errmsg = rs.code.errmsg.Value.ToString() };
+                    var msg = new { pid, syncid = syncId, type = isNew ? "上传实体会员信息" : "修改实体会员信息", url = url, status = "失败", data = member, errmsg = rs.code.errmsg.Value.ToString() };
                     Logger.Error(JsonConvert.SerializeObject(msg));
                     if ("85001000000107" == rs.code.errcode.Value.ToString())
                     {
@@ -252,12 +279,12 @@ namespace WMPT.Infrastructure
                 {
                     memberCardNo = o.WMMEMBERCARDNO,
                     points = o.POINTS == null ? 0 : (int)o.POINTS,
-                    storeId = o.STOREID,
+                    //storeId = o.STOREID,
                     title = string.IsNullOrWhiteSpace(o.TITLE) ? "线下同步上传更新" : o.TITLE,
                     remark = string.IsNullOrWhiteSpace(o.REMARK) ? "线下同步上传更新" : o.REMARK,
                     isAboutGrowthValue = string.IsNullOrWhiteSpace(o.ISABOUTGROWTHVALUE) ? false : true,
-                    @operator = string.IsNullOrWhiteSpace(o.OPERATOR) ? "WMPTSync" : o.OPERATOR,
-                    pointsPayType = 6
+                    @operator = string.IsNullOrWhiteSpace(o.OPERATOR) ? "WMUP" : o.OPERATOR,
+                    pointsPayType = o.POINTSPAYTYPE ?? 0
                 };
                 var url = String.Format(Urls.ChangeMemberPoints, await GetAccessToken(pid));
 
@@ -269,7 +296,7 @@ namespace WMPT.Infrastructure
                 {
                     //记录错误日志 
                     syncs.SetError(syncId);
-                    var msg = new { syncid = syncId, type = "修改会员积分", url = url, status = "失败", data = point, errmsg = rs.code.errmsg.Value.ToString() };
+                    var msg = new { pid, syncid = syncId, type = "修改会员积分", url = url, status = "失败", data = point, errmsg = rs.code.errmsg.Value.ToString() };
                     Logger.Error(JsonConvert.SerializeObject(msg));
                     if ("8000103" == rs.code.errcode.Value.ToString())//超出调用限制
                     {
@@ -311,7 +338,7 @@ namespace WMPT.Infrastructure
             try
             {
                 string syncType = "1";
-                var lastBeginTime = Syncs.GetLastBeginTime(syncType);
+                var lastBeginTime = Syncs.GetLastBeginTime(syncType, pid);
                 //添加同步号
                 var syncs = new Syncs();
                 int syncId = syncs.New(pid, syncType);
@@ -331,13 +358,38 @@ namespace WMPT.Infrastructure
 
 
                 //新增的微盟会员信息
-
                 await AddWmMembers(syncId, pid, syncs);
 
 
                 //调用存储过程，关联实体会员号与微盟会员号，同时修改对应实体店会员积分（添加现有系统表积分变更流水？那需要加上标记区分，别循环修改积分又上传线上微盟了）， 传递参数 同步号syncId
-                //XXXXXXXXX
 
+
+                var db = Massive.DB.Current;
+                using (var conn = db.OpenConnection())
+                {
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = "PRC_Wmmember_IMPORT";
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        var param = cmd.CreateParameter();
+                        param.ParameterName = "V_PID";
+                        param.Value = pid;
+                        param.DbType = DbType.String;
+                        var oparam = cmd.CreateParameter();
+                        oparam.ParameterName = "OUTSTATUS";
+                        oparam.Direction = ParameterDirection.Output;
+                        oparam.DbType = DbType.Int32;
+                        cmd.Parameters.Add(param);
+                        cmd.Parameters.Add(oparam);
+                        cmd.ExecuteNonQuery();
+                        if (int.Parse(cmd.Parameters["OUTSTATUS"].Value.ToString()) != 0)
+                        {
+                            syncs.SetError(syncId);
+                            Logger.Error("公众号：" + pid + "执行存储过程[PRC_Wmmember_IMPORT]失败,返回值：" + cmd.Parameters["OUTSTATUS"].Value);
+                        }
+                    }
+                    conn.Close();
+                }
                 //会写同步状态字段
                 syncs.SetSuccess(syncId);
             }
@@ -371,7 +423,7 @@ SELECT distinct MEMBERCARDNO
                 {
                     syncs.SetError(syncId);
                     //log err
-                    var msg = new { syncid = syncId, type = "获取WM会员信息", url = url, status = "失败", data = queryParam, errmsg = rs.code.errmsg.Value.ToString() };
+                    var msg = new { pid, syncid = syncId, type = "获取WM会员信息", url = url, status = "失败", data = queryParam, errmsg = rs.code.errmsg.Value.ToString() };
                     Logger.Error(JsonConvert.SerializeObject(msg));
                     if ("8000103" == rs.code.errcode.Value.ToString())//超出调用限制
                     {
@@ -409,7 +461,7 @@ SELECT distinct MEMBERCARDNO
                 {
                     syncs.SetError(syncId);
                     //log err
-                    var msg = new { syncid = syncId, type = "获取WM会员信息", url = url, status = "失败", data = queryParam, errmsg = rs.code.errmsg.Value.ToString() };
+                    var msg = new { pid, syncid = syncId, type = "获取WM会员信息", url = url, status = "失败", data = queryParam, errmsg = rs.code.errmsg.Value.ToString() };
                     Logger.Error(JsonConvert.SerializeObject(msg));
                     if ("8000103" == rs.code.errcode.Value.ToString())//超出调用限制
                     {
@@ -443,7 +495,7 @@ SELECT distinct MEMBERCARDNO
             {
                 syncs.SetError(syncId);
 
-                var msg = new { syncid = syncId, type = "获取WM积分流水", url = url, status = "失败", data = queryParam, errmsg = rs.code.errmsg.Value.ToString() };
+                var msg = new { pid, syncid = syncId, type = "获取WM积分流水", url = url, status = "失败", data = queryParam, errmsg = rs.code.errmsg.Value.ToString() };
                 Logger.Error(JsonConvert.SerializeObject(msg));
                 return;
             }
@@ -468,7 +520,7 @@ SELECT distinct MEMBERCARDNO
                               args: wMPointLogs.TableName).Select(c => c.COLUMN_NAME).ToList();
             foreach (var item in items)
             {
-                if (item.@operator.Value != null && "WMPTSync" == item.@operator.Value.ToString()) continue;
+                if (item.@operator.Value != null && "WMUP" == item.@operator.Value.ToString()) continue;
                 var e = GetNewObjByJObject(item, colNames);
                 points.Add(e);
                 ids.Add(item.id.Value);

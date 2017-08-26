@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Massive;
 using Newtonsoft.Json.Linq;
+using System.Data;
 
 namespace ConsoleApplication1
 {
@@ -13,9 +14,35 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
+
+            var db = Massive.DB.Current;
+            using (var conn = db.OpenConnection())
+            {
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "PRC_Wmmember_IMPORT";
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = "V_PID";
+                    param.Value = "4";
+                    param.DbType = DbType.String;
+                    var oparam = cmd.CreateParameter();
+                    oparam.ParameterName = "OUTSTATUS";
+                    oparam.Direction = ParameterDirection.Output;
+                    oparam.DbType = DbType.Int32;
+                    cmd.Parameters.Add(param);
+                    cmd.Parameters.Add(oparam);
+                    cmd.ExecuteNonQuery();
+                    if (int.Parse(cmd.Parameters["OUTSTATUS"].Value.ToString()) != 0)
+                    {   }
+                }
+                conn.Close();
+            } 
+
+
             //测试获取会员
             var strJSON =
-                @"{""data"":{""qrCodeUrl"":""http://shopimg.weimob.com/670/MemberCardNoQrCode/320_320/784d7307-f7bf-4fb9-8391-326308941604.jpg"",""barCodeUrl"":""http://shopimg.weimob.com/670/MemberCardNoBarCode/240_80/c59ff736-62a3-4473-ac07-9913e259fbcc.jpg"",""fromType"":0,""fromValue"":null,""weiChatcode"":null,""isNeedSyncWeiXin"":false,""passWord"":null,""level"":{""Key"":1,""Value"":""白银会员""},""memberStatus"":1,""canUseStoreType"":1,""canUseStoreIds"":[24,26,23],""id"":70,""aId"":670,""openId"":""o1_96s6ilpc8Dt__0pWqlYvBSZdQ"",""weimobopenId"":""o1_96s6ilpc8Dt__0pWqlYvBSZdQ"",""memberCardNo"":""13651614940"",""name"":""曾楠"",""nickName"":null,""headUrl"":"""",""phone"":""13651614940"",""sex"":0,""birthday"":null,""eMail"":null,""degree"":0,""profession"":0,""income"":0,""hobby"":null,""listOther"":null,""addressInfo"":{""provinceName"":"""",""provinceId"":null,""cityName"":"""",""cityId"":null,""districtName"":"""",""districtId"":null,""address"":null,""mapType"":0,""longitude"":0,""latitude"":0,""code"":null},""growthValue"":0,""points"":111084978,""amount"":9350.58,""allConsumingAmount"":608.95,""balanceConsumingAmount"":340.09,""consumingCount"":10,""perConsumingAmount"":60.9,""allPoints"":111112063,""lastConsumingTime"":""1478158384"",""activateTime"":1477470997,""disCount"":50,""tags"":null,""entityStatus"":1,""startDate"":0,""expireDate"":0,""expireDateType"":0,""birthdayMonth"":0,""birthdayDay"":0},""code"":{""errcode"":""0"",""errmsg"":null}}";
+            @"{""data"":{""qrCodeUrl"":""http://shopimg.weimob.com/670/MemberCardNoQrCode/320_320/784d7307-f7bf-4fb9-8391-326308941604.jpg"",""barCodeUrl"":""http://shopimg.weimob.com/670/MemberCardNoBarCode/240_80/c59ff736-62a3-4473-ac07-9913e259fbcc.jpg"",""fromType"":0,""fromValue"":null,""weiChatcode"":null,""isNeedSyncWeiXin"":false,""passWord"":null,""level"":{""Key"":1,""Value"":""白银会员""},""memberStatus"":1,""canUseStoreType"":1,""canUseStoreIds"":[24,26,23],""id"":70,""aId"":670,""openId"":""o1_96s6ilpc8Dt__0pWqlYvBSZdQ"",""weimobopenId"":""o1_96s6ilpc8Dt__0pWqlYvBSZdQ"",""memberCardNo"":""13651614940"",""name"":""曾楠"",""nickName"":null,""headUrl"":"""",""phone"":""13651614940"",""sex"":0,""birthday"":null,""eMail"":null,""degree"":0,""profession"":0,""income"":0,""hobby"":null,""listOther"":null,""addressInfo"":{""provinceName"":"""",""provinceId"":null,""cityName"":"""",""cityId"":null,""districtName"":"""",""districtId"":null,""address"":null,""mapType"":0,""longitude"":0,""latitude"":0,""code"":null},""growthValue"":0,""points"":111084978,""amount"":9350.58,""allConsumingAmount"":608.95,""balanceConsumingAmount"":340.09,""consumingCount"":10,""perConsumingAmount"":60.9,""allPoints"":111112063,""lastConsumingTime"":""1478158384"",""activateTime"":1477470997,""disCount"":50,""tags"":null,""entityStatus"":1,""startDate"":0,""expireDate"":0,""expireDateType"":0,""birthdayMonth"":0,""birthdayDay"":0},""code"":{""errcode"":""0"",""errmsg"":null}}";
             dynamic rs = JObject.Parse(strJSON);
             if ("0" != rs.code.errcode.Value.ToString())
             {
@@ -53,13 +80,13 @@ namespace ConsoleApplication1
                 else
                     newObj[kv.Name.ToUpper()] = kv.Value.Value;
             }
-          
+
             {
-             
+
                 e.SYNCID = 123;
                 e.PID = "xxxxx";
             }
-            
+
             wMMembers.Insert(e);
 
             string ab;

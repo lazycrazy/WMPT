@@ -11,14 +11,15 @@ namespace WMPT.Infrastructure.Job
     [DisallowConcurrentExecution]
     public class DownloadMemberJob : IJob
     {
-        public ILogger Logger = new NLogger();
+        public NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
         public void Execute(IJobExecutionContext context)
         {
+            JobDataMap dataMap = context.JobDetail.JobDataMap;
+            var pid = dataMap.GetString("pid");
             try
             {
-                JobDataMap dataMap = context.JobDetail.JobDataMap;
-                var pid = dataMap.GetString("pid");
+
                 WMHelper.DownloadMember(pid).Wait();
 
 
@@ -27,8 +28,9 @@ namespace WMPT.Infrastructure.Job
             }
             catch (Exception ex)
             {
-                Logger.LogError("下载会员Job执行失败");
-                Logger.LogError(ex);
+                Logger.Error("公众号：" + pid + "下载会员Job执行失败");
+                Logger.Error(ex);
+
                 //job失败日志
             }
         }

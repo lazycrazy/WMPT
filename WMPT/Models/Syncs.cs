@@ -33,13 +33,13 @@ namespace WMPT.Models
         {
             this.Update(new { STATUS = -1 }, "ID=:0 and STATUS=0", id);
         }
-        public static DateTime GetLastBeginTime(string syncType)
+        public static DateTime GetLastBeginTime(string syncType, string pid)
         {
             dynamic syncs = new Syncs();
-            var newSync = syncs.First(SYNCTYPE: syncType, STATUS: 1, Columns: "SYNCTIME", OrderBy: "ID DESC");
+            var newSync = syncs.First(SYNCTYPE: syncType, STATUS: 1, PID: pid, Columns: "SYNCTIME", OrderBy: "ID DESC");
             if (newSync == null)
                 return DateTime.Parse("2017-08-01");
-            return newSync.SYNCTIME.AddMilliseconds(-30);
+            return newSync.SYNCTIME.AddMinutes(-10);
         }
     }
 }
