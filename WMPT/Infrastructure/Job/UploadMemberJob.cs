@@ -5,6 +5,7 @@ using System.Web;
 using Quartz;
 using WMPT.Infrastructure.Logging;
 using WMPT.Models;
+using System.Threading;
 
 namespace WMPT.Infrastructure.Job
 {
@@ -15,6 +16,7 @@ namespace WMPT.Infrastructure.Job
 
         public void Execute(IJobExecutionContext context)
         {
+            Thread.CurrentThread.IsBackground = true;
             JobDataMap dataMap = context.JobDetail.JobDataMap;
             var pid = dataMap.GetString("pid");
 
