@@ -538,9 +538,14 @@ SELECT distinct MEMBERCARDNO
                 //"operataor": "卡号：111111100000136123",
                 //"remark": "会员签到赠送积分"
             }
-            var strIds = string.Join(",", ids);
+            var existsIds = new List<long>();
+            if (ids.Count > 0)
+            {
+                var strIds = string.Join(",", ids);
+                existsIds = wMPointLogs.Query(string.Format("select id from WMPOINTSLOG where id in ({0}) and pid=:0", strIds), args: pid).Select(d => (long)d.ID).ToList();
 
-            var existsIds = wMPointLogs.Query(string.Format("select id from WMPOINTSLOG where id in ({0}) and pid=:0", strIds), args: pid).Select(d => (long)d.ID).ToList();
+            }
+
             var addPoints = points.Where(p => !existsIds.Exists(e => e == p.ID)).ToArray();
             if (addPoints.Length > 0)
             {
