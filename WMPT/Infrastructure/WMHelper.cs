@@ -41,7 +41,7 @@ namespace WMPT.Infrastructure
                 {
                     await reqStream.WriteAsync(jsonData, 0, jsonData.Length);
                 }
-                string retString;
+                string retString = "";
                 using (var response = await request.GetResponseAsync())
                 {
                     using (var myResponseStream = response.GetResponseStream())
@@ -52,8 +52,20 @@ namespace WMPT.Infrastructure
                         }
                     }
                 }
-                var rs = JObject.Parse(retString);
-                return rs;
+                try
+                {
+                    //retString = retString.TrimStart('"').TrimEnd('"');
+                    var rs = JObject.Parse(retString);
+                    return rs;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error(ex, "请求URL失败：" + url + " 数据：" + postDataStr);
+                    Logger.Error("解析返回JSON失败：" + retString);
+                    Logger.Error(ex);
+                    return null;
+                }
+
             }
             catch (Exception ex)
             {
@@ -221,7 +233,11 @@ namespace WMPT.Infrastructure
                     url = String.Format(Urls.UpdateOfflineMemberInfo, await GetAccessToken(pid));
                 //新增实体会员 
                 dynamic rs = await WMHelper.PostJson(url, member);
-                if (rs == null) continue;
+                if (rs == null)
+                {
+                    syncs.SetError(syncId);
+                    continue;
+                }
                 //记录日志
                 //成功，回写标记
                 if ("0" != rs.code.errcode.Value.ToString())
@@ -289,7 +305,11 @@ namespace WMPT.Infrastructure
                 var url = String.Format(Urls.ChangeMemberPoints, await GetAccessToken(pid));
 
                 dynamic rs = await WMHelper.PostJson(url, point);
-                if (rs == null) continue;
+                if (rs == null)
+                {
+                    syncs.SetError(syncId);
+                    continue;
+                }
 
                 //成功，回写标记
                 if ("0" != rs.code.errcode.Value.ToString())
@@ -361,6 +381,7 @@ namespace WMPT.Infrastructure
                 await AddWmMembers(syncId, pid, syncs);
 
 
+
                 //调用存储过程，关联实体会员号与微盟会员号，同时修改对应实体店会员积分（添加现有系统表积分变更流水？那需要加上标记区分，别循环修改积分又上传线上微盟了）， 传递参数 同步号syncId
 
 
@@ -412,13 +433,16 @@ SELECT distinct MEMBERCARDNO
             var colNames =
               wMMembers.Query(@"SELECT column_name   FROM USER_TAB_COLUMNS WHERE TABLE_NAME = :0",
                               args: wMMembers.TableName).Select(c => c.COLUMN_NAME).ToList();
-
             foreach (string newMember in updateMembers)
             {
                 var queryParam = new { memberCardNo = newMember };
                 var url = string.Format(Urls.GetMemberInfo, await GetAccessToken(pid));
                 dynamic rs = await WMHelper.PostJson(url, queryParam);
-                if (rs == null) continue;
+                if (rs == null)
+                {
+                    syncs.SetError(syncId);
+                    continue;
+                }
                 if ("0" != rs.code.errcode.Value.ToString())
                 {
                     syncs.SetError(syncId);
@@ -438,12 +462,14 @@ SELECT distinct MEMBERCARDNO
                 }
                 var item = rs.data;
                 if (item == null) continue;
+
                 var e = GetNewObjByJObject(item, colNames);
                 e.SYNCID = syncId;
                 e.PID = pid;
                 wMMembers.Update(e, "MEMBERCARDNO=:0 and PID=:1", newMember, pid);
                 syncs.AddEffectCount(syncId, 1);
             }
+
             //新增
             var newMembers = wMMembers.Query(@"
 SELECT distinct MEMBERCARDNO
@@ -456,7 +482,11 @@ SELECT distinct MEMBERCARDNO
                 var queryParam = new { memberCardNo = newMember };
                 var url = string.Format(Urls.GetMemberInfo, await GetAccessToken(pid));
                 dynamic rs = await WMHelper.PostJson(url, queryParam);
-                if (rs == null) return;
+                if (rs == null)
+                {
+                    syncs.SetError(syncId);
+                    continue;
+                }
                 if ("0" != rs.code.errcode.Value.ToString())
                 {
                     syncs.SetError(syncId);
@@ -483,14 +513,17 @@ SELECT distinct MEMBERCARDNO
                 syncs.AddEffectCount(syncId, 1);
             }
 
-
         }
 
         private static async Task AddWmMemberPointLogs(int syncId, string pid, dynamic queryParam, dynamic syncs)
         {
             var url = string.Format(Urls.GetPointsLogPageListAndTotal, await GetAccessToken(pid));
             dynamic rs = await WMHelper.PostJson(url, queryParam);
-            if (rs == null) return;
+            if (rs == null)
+            {
+                syncs.SetError(syncId);
+                return;
+            }
             if ("0" != rs.code.errcode.Value.ToString())
             {
                 syncs.SetError(syncId);
@@ -509,6 +542,7 @@ SELECT distinct MEMBERCARDNO
 
             int pageIndex = queryParam.pageIndex;
             int pageSize = queryParam.pageSize;
+            if (rs.GetType().GetProperty("data") == null) return;
             int totalCount = (int)rs.data.totalCount.Value;
             if (totalCount == 0) return;
             var items = rs.data.items;
@@ -520,7 +554,7 @@ SELECT distinct MEMBERCARDNO
                               args: wMPointLogs.TableName).Select(c => c.COLUMN_NAME).ToList();
             foreach (var item in items)
             {
-                if (item.@operator.Value != null && "WMUP" == item.@operator.Value.ToString()) continue;
+                if (item.GetType().GetProperty("operator") != null && item.@operator.Value != null && "WMUP" == item.@operator.Value.ToString()) continue;
                 var e = GetNewObjByJObject(item, colNames);
                 points.Add(e);
                 ids.Add(item.id.Value);
