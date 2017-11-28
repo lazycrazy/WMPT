@@ -460,6 +460,12 @@ SELECT distinct MEMBERCARDNO
                     var msg = new { syncid = syncId, type = "获取WM会员信息", url = url, status = "成功", data = queryParam };
                     Logger.Info(JsonConvert.SerializeObject(msg));
                 }
+                if (rs.data == null)
+                {
+                    var msg = new { syncid = syncId, type = "获取WM会员信息", url = url, status = "成功", data = queryParam, message = "返回结果没有data", result = rs.ToString() };
+                    Logger.Error(JsonConvert.SerializeObject(msg));
+                    continue;
+                }
                 var item = rs.data;
                 if (item == null) continue;
 
@@ -504,6 +510,13 @@ SELECT distinct MEMBERCARDNO
                     var msg = new { syncid = syncId, type = "获取WM会员信息", url = url, status = "成功", data = queryParam };
                     Logger.Info(JsonConvert.SerializeObject(msg));
                 }
+                if (rs.data == null)
+                {
+                    var msg = new { pid = pid, syncid = syncId, type = "获取WM会员信息", url = url, status = "成功", data = queryParam, message = "返回结果没有data", rs = rs.ToString() };
+                    Logger.Error(JsonConvert.SerializeObject(msg));
+                    //wMMembers.Execute("delete WMPOINTSLOG where MEMBERCARDNO=:0 and PID=:1 ", newMember, pid);
+                    continue;
+                }
                 var item = rs.data;
                 if (item == null) continue;
                 var e = GetNewObjByJObject(item, colNames);
@@ -519,6 +532,8 @@ SELECT distinct MEMBERCARDNO
         {
             var url = string.Format(Urls.GetPointsLogPageListAndTotal, await GetAccessToken(pid));
             dynamic rs = await WMHelper.PostJson(url, queryParam);
+            //var msg1 = new { pid, syncid = syncId, type = "获取WM积分流水", url = url, data = queryParam, rs = rs.ToString() };
+            //Logger.Error(JsonConvert.SerializeObject(msg1));
             if (rs == null)
             {
                 syncs.SetError(syncId);
@@ -538,11 +553,17 @@ SELECT distinct MEMBERCARDNO
                 Logger.Info(JsonConvert.SerializeObject(msg));
             }
 
+            //Logger.Error("111111111" + pid);
 
 
             int pageIndex = queryParam.pageIndex;
             int pageSize = queryParam.pageSize;
-            if (rs.GetType().GetProperty("data") == null) return;
+            if (rs.data == null || rs.data.totalCount == null)
+            {
+                var msg = new { syncid = syncId, type = "获取WM积分流水", url = url, status = "成功", data = queryParam, message = "返回结果没有data", result = rs.ToString() };
+                Logger.Error(JsonConvert.SerializeObject(msg));
+                return;
+            };
             int totalCount = (int)rs.data.totalCount.Value;
             if (totalCount == 0) return;
             var items = rs.data.items;
@@ -552,6 +573,7 @@ SELECT distinct MEMBERCARDNO
             var colNames =
               wMPointLogs.Query(@"SELECT column_name   FROM USER_TAB_COLUMNS WHERE TABLE_NAME = :0",
                               args: wMPointLogs.TableName).Select(c => c.COLUMN_NAME).ToList();
+            //Logger.Error("222222222222" + pid);
             foreach (var item in items)
             {
                 if (item.GetType().GetProperty("operator") != null && item.@operator.Value != null && "WMUP" == item.@operator.Value.ToString()) continue;
@@ -572,6 +594,7 @@ SELECT distinct MEMBERCARDNO
                 //"operataor": "卡号：111111100000136123",
                 //"remark": "会员签到赠送积分"
             }
+            //Logger.Error("33333333333333" + pid);
             var existsIds = new List<long>();
             if (ids.Count > 0)
             {
@@ -579,6 +602,7 @@ SELECT distinct MEMBERCARDNO
                 existsIds = wMPointLogs.Query(string.Format("select id from WMPOINTSLOG where id in ({0}) and pid=:0", strIds), args: pid).Select(d => (long)d.ID).ToList();
 
             }
+            //Logger.Error("444444444444444" + pid);
 
             var addPoints = points.Where(p => !existsIds.Exists(e => e == p.ID)).ToArray();
             if (addPoints.Length > 0)
@@ -591,6 +615,7 @@ SELECT distinct MEMBERCARDNO
                 }
                 wMPointLogs.SaveAsNew(addPoints);
             }
+            //Logger.Error("5555555" + pid);
 
             if ((items).Count + pageSize * (pageIndex - 1) < totalCount)
             {

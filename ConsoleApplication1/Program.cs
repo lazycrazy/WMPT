@@ -15,11 +15,29 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
+            var queryParam = new
+            {
+                begintime = WMHelper.GetTimeStamp(DateTime.Now.Date),
+                pageIndex = 1,
+                pageSize = 100,
+                isOnlyEffective = false
+            };
+            var url = string.Format(Urls.GetPointsLogPageListAndTotal, "c0784bc1-034b-4992-94fa-e8cb78264f70");
+            dynamic rs = WMHelper.PostJson(url, queryParam).Result;
+            //var data = rs.GetType().GetProperty("data");
+            if (rs == null || rs.data == null)
+            {
+
+            }
+            //var queryParam = new { memberCardNo = "17713222813" };
+
+            //var url = string.Format(Urls.GetPointsLogPageListAndTotal, "15d74508-abc6-4758-aeae-811c929da2a7");
+            //dynamic rs =   WMHelper.PostJson(url, queryParam).Result;
+
             //var abc = JObject.Parse("{\"returnCode\":\"null00003\",\"returnMsg\":\"请求异常\"}");
-            var queryParam = new { memberCardNo = "13700386142" };
-            var url = "https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/GetMemberInfo?accesstoken=72f3bfc6-0d92-415b-8289-c1729b94628b";
-            //var url = "https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/GetMemberInfo?accesstoken=384920f9-e67f-42d0-92cd-b836a64782da";
-            dynamic rss = WMHelper.PostJson(url, queryParam).Result;
+            //var queryParam = new { memberCardNo = "13700386142" };
+            //var url = "https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/GetMemberInfo?accesstoken=72f3bfc6-0d92-415b-8289-c1729b94628b";
+            //dynamic rss = WMHelper.PostJson(url, queryParam).Result;
 
 
 
