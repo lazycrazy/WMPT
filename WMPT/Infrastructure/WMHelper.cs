@@ -21,8 +21,7 @@ namespace WMPT.Infrastructure
     {
         public static NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
-        public static volatile Dictionary<string, bool> IsDownloadings = new Dictionary<string, bool>();
-        public static volatile Dictionary<string, bool> IsUploadings = new Dictionary<string, bool>();
+
         public static volatile Dictionary<string, string> AccessTokens = new Dictionary<string, string>();
 
 
@@ -137,8 +136,7 @@ namespace WMPT.Infrastructure
 
         public static async Task UploadMember(string pid)
         {
-            if (IsUploadings.ContainsKey(pid) && IsUploadings[pid]) return;
-            IsUploadings[pid] = true;
+
             try
             {
                 //添加同步号
@@ -184,7 +182,7 @@ namespace WMPT.Infrastructure
             }
             finally
             {
-                IsUploadings[pid] = false;
+
 
             }
 
@@ -353,8 +351,7 @@ namespace WMPT.Infrastructure
 
         public static async Task DownloadMember(string pid)
         {
-            if (IsDownloadings.ContainsKey(pid) && IsDownloadings[pid]) return;
-            IsDownloadings[pid] = true;
+
             try
             {
                 string syncType = "1";
@@ -416,7 +413,6 @@ namespace WMPT.Infrastructure
             }
             finally
             {
-                IsDownloadings[pid] = false;
             }
         }
 
@@ -528,7 +524,7 @@ SELECT distinct MEMBERCARDNO
 
         }
 
-        private static async Task AddWmMemberPointLogs(int syncId, string pid, dynamic queryParam, dynamic syncs)
+        private static async Task<dynamic> GetPointLogs(int syncId, string pid, dynamic queryParam, dynamic syncs)
         {
             var url = string.Format(Urls.GetPointsLogPageListAndTotal, await GetAccessToken(pid));
             dynamic rs = await WMHelper.PostJson(url, queryParam);
@@ -537,7 +533,7 @@ SELECT distinct MEMBERCARDNO
             if (rs == null)
             {
                 syncs.SetError(syncId);
-                return;
+                return null;
             }
             if ("0" != rs.code.errcode.Value.ToString())
             {
@@ -545,27 +541,52 @@ SELECT distinct MEMBERCARDNO
 
                 var msg = new { pid, syncid = syncId, type = "获取WM积分流水", url = url, status = "失败", data = queryParam, errmsg = rs.code.errmsg.Value.ToString() };
                 Logger.Error(JsonConvert.SerializeObject(msg));
-                return;
+                return null;
             }
             else
             {
-                var msg = new { syncid = syncId, type = "获取WM积分流水", url = url, status = "成功", data = queryParam };
+                var msg = new { pid, syncid = syncId, type = "获取WM积分流水", url = url, status = "成功", data = queryParam };
                 Logger.Info(JsonConvert.SerializeObject(msg));
             }
-
-            //Logger.Error("111111111" + pid);
-
-
-            int pageIndex = queryParam.pageIndex;
-            int pageSize = queryParam.pageSize;
             if (rs.data == null || rs.data.totalCount == null)
             {
                 var msg = new { syncid = syncId, type = "获取WM积分流水", url = url, status = "成功", data = queryParam, message = "返回结果没有data", result = rs.ToString() };
                 Logger.Error(JsonConvert.SerializeObject(msg));
-                return;
+                return null;
             };
             int totalCount = (int)rs.data.totalCount.Value;
-            if (totalCount == 0) return;
+            if (totalCount == 0) return null;
+            return rs;
+        }
+
+        public static async Task AddWmMemberPointLogs(int syncId, string pid, dynamic queryParam, dynamic syncs)
+        {
+
+            dynamic rs = await GetPointLogs(syncId, pid, queryParam, syncs);
+            if (rs == null) return;
+
+            int pageIdx = queryParam.pageIndex;
+            int pageSize = queryParam.pageSize;
+            int totalCount = (int)rs.data.totalCount.Value;
+
+            ProcessPointLogs(syncId, pid, rs);
+
+            int count = (int)Math.Ceiling(((decimal)totalCount / pageSize)) - pageIdx;
+
+            for (int i = 0; i < count; i++)
+            {
+                var param = new { pageIndex = (pageIdx + 1 + i), queryParam.begintime, queryParam.pageSize, queryParam.isOnlyEffective };
+
+                rs = await GetPointLogs(syncId, pid, param, syncs);
+                if (rs == null) continue;
+
+                ProcessPointLogs(syncId, pid, rs);
+            }
+
+        }
+
+        private static void ProcessPointLogs(int syncId, string pid, dynamic rs)
+        {
             var items = rs.data.items;
             var points = new List<dynamic>();
             var ids = new List<dynamic>();
@@ -576,7 +597,7 @@ SELECT distinct MEMBERCARDNO
             //Logger.Error("222222222222" + pid);
             foreach (var item in items)
             {
-                if (item.GetType().GetProperty("operator") != null && item.@operator.Value != null && "WMUP" == item.@operator.Value.ToString()) continue;
+                if (item.@operator != null && item.@operator.Value != null && "WMUP" == item.@operator.Value.ToString()) continue;
                 var e = GetNewObjByJObject(item, colNames);
                 points.Add(e);
                 ids.Add(item.id.Value);
@@ -614,13 +635,6 @@ SELECT distinct MEMBERCARDNO
                     addPoint.PID = pid;
                 }
                 wMPointLogs.SaveAsNew(addPoints);
-            }
-            //Logger.Error("5555555" + pid);
-
-            if ((items).Count + pageSize * (pageIndex - 1) < totalCount)
-            {
-                var param = new { pageIndex = (pageIndex + 1), queryParam.begintime, queryParam.pageSize, queryParam.isOnlyEffective };
-                await AddWmMemberPointLogs(syncId, pid, param, syncs);
             }
         }
 

@@ -8,6 +8,7 @@ using Massive;
 using Newtonsoft.Json.Linq;
 using System.Data;
 using WMPT.Infrastructure;
+using WMPT.Models;
 
 namespace ConsoleApplication1
 {
@@ -17,15 +18,17 @@ namespace ConsoleApplication1
         {
             var queryParam = new
             {
-                begintime = WMHelper.GetTimeStamp(DateTime.Now.Date),
+                begintime = WMHelper.GetTimeStamp(DateTime.Now.Date.AddDays(-7)),
                 pageIndex = 1,
                 pageSize = 100,
                 isOnlyEffective = false
             };
-            var url = string.Format(Urls.GetPointsLogPageListAndTotal, "c0784bc1-034b-4992-94fa-e8cb78264f70");
-            dynamic rs = WMHelper.PostJson(url, queryParam).Result;
+            var syncs = new Syncs();
+
+            WMHelper.AddWmMemberPointLogs(123, "456", queryParam, syncs).Wait();
+
             //var data = rs.GetType().GetProperty("data");
-            if (rs == null || rs.data == null)
+
             {
 
             }
