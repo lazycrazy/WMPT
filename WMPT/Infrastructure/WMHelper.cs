@@ -196,7 +196,7 @@ namespace WMPT.Infrastructure
             //上传新增实体会员
 
 
-            foreach (dynamic o in offlineMembers.All(@where: "SYNCFLAG ='0' and PID=:0", args: pid))
+            foreach (dynamic o in offlineMembers.All(@where: "NEWFLAG='1' and SYNCFLAG ='0' and PID=:0", args: pid))
             {
                 var member = new
                 {
@@ -227,8 +227,8 @@ namespace WMPT.Infrastructure
                 };
                 var isNew = "1" == o.NEWFLAG;
                 var url = String.Format(Urls.AddOfflineMemberInfo, await GetAccessToken(pid));
-                if (!isNew)
-                    url = String.Format(Urls.UpdateOfflineMemberInfo, await GetAccessToken(pid));
+                //if (!isNew)
+                //    url = String.Format(Urls.UpdateOfflineMemberInfo, await GetAccessToken(pid));
                 //新增实体会员 
                 dynamic rs = await WMHelper.PostJson(url, member);
                 if (rs == null)
@@ -550,7 +550,8 @@ SELECT distinct MEMBERCARDNO
             }
             if (rs.data == null || rs.data.totalCount == null)
             {
-                var msg = new { syncid = syncId, type = "获取WM积分流水", url = url, status = "成功", data = queryParam, message = "返回结果没有data", result = rs.ToString() };
+                syncs.SetError(syncId);
+                var msg = new { pid, syncid = syncId, type = "获取WM积分流水", url = url, status = "成功", data = queryParam, message = "返回结果没有data", result = rs.ToString() };
                 Logger.Error(JsonConvert.SerializeObject(msg));
                 return null;
             };
