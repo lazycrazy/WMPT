@@ -108,12 +108,12 @@ namespace WMPT.Infrastructure
 
                 AccessTokens[pid] = rsJson.access_token.Value;
                 //记录成功日志
-                var msg = new { type = "刷新token", url = url, status = "成功", accesstoken = AccessTokens[pid] };
+                var msg = new { pid, type = "刷新token", url = url, status = "成功", accesstoken = AccessTokens[pid] };
                 Logger.Error(JsonConvert.SerializeObject(msg));
             }
             catch (Exception ex)
             {
-                var msg = new { type = "刷新token", url = url, status = "失败" };
+                var msg = new { pid, type = "刷新token", url = url, status = "失败" };
                 Logger.Error(ex, JsonConvert.SerializeObject(msg));
                 Logger.Error(ex);
                 //记录错误日志
@@ -188,6 +188,12 @@ namespace WMPT.Infrastructure
 
         }
 
+        public static bool IsPropertyExist(dynamic data, string propertyname)
+        {
+            var jo = data as JObject;
+            return jo.Properties().Any(p => p.Name == propertyname);
+        }
+
         private static async Task ModifyWmOfflineMember(int syncId, string pid, dynamic syncs)
         {
             //获取需要新增实体会员 未同步，新增的会员，修改的会员
@@ -196,7 +202,7 @@ namespace WMPT.Infrastructure
             //上传新增实体会员
 
 
-            foreach (dynamic o in offlineMembers.All(@where: "NEWFLAG='1' and SYNCFLAG ='0' and PID=:0", args: pid))
+            foreach (dynamic o in offlineMembers.All(@where: " SYNCFLAG ='0' and PID=:0", args: pid))
             {
                 var member = new
                 {
@@ -227,22 +233,31 @@ namespace WMPT.Infrastructure
                 };
                 var isNew = "1" == o.NEWFLAG;
                 var url = String.Format(Urls.AddOfflineMemberInfo, await GetAccessToken(pid));
-                //if (!isNew)
-                //    url = String.Format(Urls.UpdateOfflineMemberInfo, await GetAccessToken(pid));
+                if (!isNew)
+                    url = String.Format(Urls.UpdateOfflineMemberInfo, await GetAccessToken(pid));
                 //新增实体会员 
                 dynamic rs = await WMHelper.PostJson(url, member);
+                var msg1 = new { pid, syncid = syncId, type = isNew ? "上传实体会员信息" : "修改实体会员信息", url = url, status = "失败", data = member, errmsg = rs.ToString() };
+                Logger.Error(JsonConvert.SerializeObject(msg1));
                 if (rs == null)
                 {
                     syncs.SetError(syncId);
+                    continue;
+                }
+                if (IsPropertyExist(rs, "errcode"))
+                {
+                    syncs.SetError(syncId);
+                    var msg = new { pid, syncid = syncId, type = isNew ? "上传实体会员信息" : "修改实体会员信息", url = url, status = "失败", data = member, errmsg = rs.ToString() };
+                    Logger.Error(JsonConvert.SerializeObject(msg));
                     continue;
                 }
                 //记录日志
                 //成功，回写标记
                 if ("0" != rs.code.errcode.Value.ToString())
                 {
-                    //记录错误日志
-                    var msg = new { pid, syncid = syncId, type = isNew ? "上传实体会员信息" : "修改实体会员信息", url = url, status = "失败", data = member, errmsg = rs.code.errmsg.Value.ToString() };
+                    var msg = new { pid, syncid = syncId, type = isNew ? "上传实体会员信息" : "修改实体会员信息", url = url, status = "失败", data = member, errmsg = rs.ToString() };
                     Logger.Error(JsonConvert.SerializeObject(msg));
+                    //记录错误日志
                     if ("85001000000107" == rs.code.errcode.Value.ToString())
                     {
                         var updateFlag = new { SYNCID = syncId, SYNCFLAG = "1", SYNCTIME = "sysdate", NEWFLAG = "0" };
@@ -261,8 +276,6 @@ namespace WMPT.Infrastructure
                 }
                 else
                 {
-                    var msg = new { syncid = syncId, type = isNew ? "上传实体会员信息" : "修改实体会员信息", url = url, status = "成功", data = member };
-                    Logger.Info(JsonConvert.SerializeObject(msg));
                     var updateFlag = new { SYNCID = syncId, SYNCFLAG = "1", SYNCTIME = "sysdate", NEWFLAG = "0" };
                     //会写状态
                     offlineMembers.Update(updateFlag, "pid=:0 and MEMBERCARDNO=:1", pid, o.MEMBERCARDNO);
@@ -308,13 +321,19 @@ namespace WMPT.Infrastructure
                     syncs.SetError(syncId);
                     continue;
                 }
-
+                if (IsPropertyExist(rs, "errcode"))
+                {
+                    syncs.SetError(syncId);
+                    var msg = new { pid, syncid = syncId, type = "修改会员积分", url = url, status = "失败", data = point, errmsg = rs.ToString() };
+                    Logger.Error(JsonConvert.SerializeObject(msg));
+                    continue;
+                }
                 //成功，回写标记
                 if ("0" != rs.code.errcode.Value.ToString())
                 {
                     //记录错误日志 
                     syncs.SetError(syncId);
-                    var msg = new { pid, syncid = syncId, type = "修改会员积分", url = url, status = "失败", data = point, errmsg = rs.code.errmsg.Value.ToString() };
+                    var msg = new { pid, syncid = syncId, type = "修改会员积分", url = url, status = "失败", data = point, errmsg = rs.ToString() };
                     Logger.Error(JsonConvert.SerializeObject(msg));
                     if ("8000103" == rs.code.errcode.Value.ToString())//超出调用限制
                     {
@@ -439,11 +458,18 @@ SELECT distinct MEMBERCARDNO
                     syncs.SetError(syncId);
                     continue;
                 }
+                if (IsPropertyExist(rs, "errcode"))
+                {
+                    syncs.SetError(syncId);
+                    var msg = new { pid, syncid = syncId, type = "获取WM会员信息", url = url, status = "失败", data = queryParam, errmsg = rs.ToString() };
+                    Logger.Error(JsonConvert.SerializeObject(msg));
+                    continue;
+                }
                 if ("0" != rs.code.errcode.Value.ToString())
                 {
                     syncs.SetError(syncId);
                     //log err
-                    var msg = new { pid, syncid = syncId, type = "获取WM会员信息", url = url, status = "失败", data = queryParam, errmsg = rs.code.errmsg.Value.ToString() };
+                    var msg = new { pid, syncid = syncId, type = "获取WM会员信息", url = url, status = "失败", data = queryParam, errmsg = rs.ToString() };
                     Logger.Error(JsonConvert.SerializeObject(msg));
                     if ("8000103" == rs.code.errcode.Value.ToString())//超出调用限制
                     {
@@ -489,11 +515,18 @@ SELECT distinct MEMBERCARDNO
                     syncs.SetError(syncId);
                     continue;
                 }
+                if (IsPropertyExist(rs, "errcode"))
+                {
+                    syncs.SetError(syncId);
+                    var msg = new { pid, syncid = syncId, type = "获取WM会员信息", url = url, status = "失败", data = queryParam, errmsg = rs.ToString() };
+                    Logger.Error(JsonConvert.SerializeObject(msg));
+                    continue;
+                }
                 if ("0" != rs.code.errcode.Value.ToString())
                 {
                     syncs.SetError(syncId);
                     //log err
-                    var msg = new { pid, syncid = syncId, type = "获取WM会员信息", url = url, status = "失败", data = queryParam, errmsg = rs.code.errmsg.Value.ToString() };
+                    var msg = new { pid, syncid = syncId, type = "获取WM会员信息", url = url, status = "失败", data = queryParam, errmsg = rs.ToString() };
                     Logger.Error(JsonConvert.SerializeObject(msg));
                     if ("8000103" == rs.code.errcode.Value.ToString())//超出调用限制
                     {
@@ -528,10 +561,15 @@ SELECT distinct MEMBERCARDNO
         {
             var url = string.Format(Urls.GetPointsLogPageListAndTotal, await GetAccessToken(pid));
             dynamic rs = await WMHelper.PostJson(url, queryParam);
-            //var msg1 = new { pid, syncid = syncId, type = "获取WM积分流水", url = url, data = queryParam, rs = rs.ToString() };
-            //Logger.Error(JsonConvert.SerializeObject(msg1));
             if (rs == null)
             {
+                syncs.SetError(syncId);
+                return null;
+            }
+            if (IsPropertyExist(rs, "errcode"))
+            {
+                var msg1 = new { pid, syncid = syncId, type = "获取WM积分流水", url = url, data = queryParam, rs = rs.ToString() };
+                Logger.Error(JsonConvert.SerializeObject(msg1));
                 syncs.SetError(syncId);
                 return null;
             }
@@ -539,7 +577,7 @@ SELECT distinct MEMBERCARDNO
             {
                 syncs.SetError(syncId);
 
-                var msg = new { pid, syncid = syncId, type = "获取WM积分流水", url = url, status = "失败", data = queryParam, errmsg = rs.code.errmsg.Value.ToString() };
+                var msg = new { pid, syncid = syncId, type = "获取WM积分流水", url = url, status = "失败", data = queryParam, errmsg = rs.ToString() };
                 Logger.Error(JsonConvert.SerializeObject(msg));
                 return null;
             }

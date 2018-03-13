@@ -20,7 +20,6 @@ namespace WMPT.Infrastructure
 
         //public string GetOffLineMemberInfoPageListAndTotal = @"https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/GetOffLineMemberInfoPageListAndTotal?accesstoken={0}";
 
-        public static string GetMemberInfoPagelistAndTotal = @"https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/GetMemberInfoPagelistAndTotal?accesstoken={0}";
         public static string GetPointsLogPageListAndTotal =
             @"https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/GetPointsLogPageListAndTotal?accesstoken={0}";
         public static string GetMemberInfo = @"https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/GetMemberInfo?accesstoken={0}";
@@ -31,4 +30,5 @@ namespace WMPT.Infrastructure
         public static string AddOfflineMemberInfo = @"https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/AddOfflineMemberInfo?accesstoken={0}";
         public static string UpdateOfflineMemberInfo = @"https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/UpdateOfflineMemberInfo?accesstoken={0}";
     }
+
 }
