@@ -204,37 +204,71 @@ namespace WMPT.Infrastructure
 
             foreach (dynamic o in offlineMembers.All(@where: " SYNCFLAG ='0' and PID=:0", args: pid))
             {
-                var member = new
-                {
-                    name = o.NAME,
-                    phone = o.PHONE,
-                    sex = o.SEX == null ? 0 : (int)o.SEX,
-                    birthday = o.BIRTHDAY == null ? "" : GetTimeStamp(DateTime.Parse(o.BIRTHDAY)).ToString(),//o.BIRTHDAY, 
-                    address = new
-                    {
-                        provinceName = o.PROVINCENAME ?? "",
-                        //provinceId = o.PROVINCEID ?? "",
-                        cityName = o.CITYNAME ?? "",
-                        //cityId = o.CITYID ?? "",
-                        //districtName = o.DISTRICTNAME ?? "",
-                        //districtId = o.DISTRICTID ?? "",
-                        address = o.ADDRESS ?? "",
-                        //mapType = o.MAPTYPE ?? 0,
-                        //longitude = o.LONGITUDE ?? 0,
-                        //latitude = o.LATITUDE ?? 0,
-                        code = o.CODE ?? ""
-                    },
-                    growthValue = o.GROWTHVALUE == null ? 0 : (int)o.GROWTHVALUE,
-                    points = o.POINTS == null ? 0 : (int)o.POINTS,
-                    allPoints = o.ALLPOINTS == null ? 0 : (int)o.ALLPOINTS,
-                    amount = o.AMOUNT ?? 0.00M,
-                    allConsumingAmount = o.ALLCONSUMINGAMOUNT ?? 0.00M
-
-                };
+                object member;
                 var isNew = "1" == o.NEWFLAG;
-                var url = String.Format(Urls.AddOfflineMemberInfo, await GetAccessToken(pid));
-                if (!isNew)
-                    url = String.Format(Urls.UpdateOfflineMemberInfo, await GetAccessToken(pid));
+                if (isNew)
+                {
+                    member = new
+                    {
+                        name = o.NAME,
+                        phone = o.PHONE,
+                        sex = o.SEX == null ? 0 : (int)o.SEX,
+                        birthday = o.BIRTHDAY == null ? "" : GetTimeStamp(DateTime.Parse(o.BIRTHDAY)).ToString(),//o.BIRTHDAY, 
+                        address = new
+                        {
+                            provinceName = o.PROVINCENAME ?? "",
+                            //provinceId = o.PROVINCEID ?? "",
+                            cityName = o.CITYNAME ?? "",
+                            //cityId = o.CITYID ?? "",
+                            //districtName = o.DISTRICTNAME ?? "",
+                            //districtId = o.DISTRICTID ?? "",
+                            address = o.ADDRESS ?? "",
+                            //mapType = o.MAPTYPE ?? 0,
+                            //longitude = o.LONGITUDE ?? 0,
+                            //latitude = o.LATITUDE ?? 0,
+                            code = o.CODE ?? ""
+                        },
+                        growthValue = o.GROWTHVALUE == null ? 0 : (int)o.GROWTHVALUE,
+                        points = o.POINTS == null ? 0 : (int)o.POINTS,
+                        allPoints = o.ALLPOINTS == null ? 0 : (int)o.ALLPOINTS,
+                        amount = o.AMOUNT ?? 0.00M,
+                        allConsumingAmount = o.ALLCONSUMINGAMOUNT ?? 0.00M
+
+                    };
+                }
+                else
+                {
+
+                    member = new
+                    {
+                        name = o.NAME,
+                        phone = o.PHONE,
+                        sex = o.SEX == null ? 0 : (int)o.SEX,
+                        birthday = o.BIRTHDAY == null ? "" : GetTimeStamp(DateTime.Parse(o.BIRTHDAY)).ToString(),//o.BIRTHDAY, 
+                        address = new
+                        {
+                            provinceName = o.PROVINCENAME ?? "",
+                            //provinceId = o.PROVINCEID ?? "",
+                            cityName = o.CITYNAME ?? "",
+                            //cityId = o.CITYID ?? "",
+                            //districtName = o.DISTRICTNAME ?? "",
+                            //districtId = o.DISTRICTID ?? "",
+                            address = o.ADDRESS ?? "",
+                            //mapType = o.MAPTYPE ?? 0,
+                            //longitude = o.LONGITUDE ?? 0,
+                            //latitude = o.LATITUDE ?? 0,
+                            code = o.CODE ?? ""
+                        },
+                        growthValue = o.GROWTHVALUE == null ? 0 : (int)o.GROWTHVALUE,
+                        points = o.POINTS == null ? 0 : (int)o.POINTS,
+                        allPoints = o.ALLPOINTS == null ? 0 : (int)o.ALLPOINTS,
+                        amount = o.AMOUNT ?? 0.00M,
+                        allConsumingAmount = o.ALLCONSUMINGAMOUNT ?? 0.00M
+
+                    };
+                }
+                var url = String.Format(isNew ? Urls.AddOfflineMemberInfo : Urls.UpdateOfflineMemberInfo, await GetAccessToken(pid));
+
                 //新增实体会员 
                 dynamic rs = await WMHelper.PostJson(url, member);
                 var msg1 = new { pid, syncid = syncId, type = isNew ? "上传实体会员信息" : "修改实体会员信息", url = url, status = "失败", data = member, errmsg = rs.ToString() };

@@ -28,7 +28,8 @@ namespace WMPT.Infrastructure
         public static string ChangeMemberPoints = @"https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/ChangeMemberPoints?accesstoken={0}";
         //public string SaveMemberInfo = @"https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/SaveMemberInfo?accesstoken={0}";
         public static string AddOfflineMemberInfo = @"https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/AddOfflineMemberInfo?accesstoken={0}";
-        public static string UpdateOfflineMemberInfo = @"https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/UpdateOfflineMemberInfo?accesstoken={0}";
+        //public static string UpdateOfflineMemberInfo = @"https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/UpdateOfflineMemberInfo?accesstoken={0}";
+        public static string UpdateOfflineMemberInfo = @"https://dopen.weimob.com/api/1_0/KLDService/KLDMemberCard/UpdateOfflineMemberPointsAndBalance?accesstoken={0}";
     }
 
 }
